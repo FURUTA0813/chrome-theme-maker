@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="画像を調整してChromeテーマを作成。Create a Chrome theme from your own image.">
+  <meta property="og:title" content="Chrome Theme Maker">
+  <meta property="og:description" content="A simple, private tool to crop an image and create a Chrome theme.">
+  <meta property="og:type" content="website">
+  <title>Chrome Theme Maker — Create a theme from your image</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --surface: #fff;
+      --text: #17191c;
+      --muted: #6d737c;
+      --line: #e5e8ec;
+      --soft: #f1f3f5;
+      --accent: #2864dc;
+      --accent-hover: #1e52bb;
+      --focus: #91b4ff;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, .drop:focus-within {
+      outline: 3px solid color-mix(in srgb, var(--focus) 65%, transparent);
+      outline-offset: 2px;
+    }
+    .site-header {
+      height: 66px;
+      background: rgba(255,255,255,.92);
+      border-bottom: 1px solid var(--line);
+    }
+    .header-inner, .page { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .header-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 11px; color: var(--text); text-decoration: none; font-weight: 750; letter-spacing: -.025em; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #d9dde3; border-radius: 9px; font-size: 15px; font-weight: 800; }
+    .brand-name { font-size: 14px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .privacy-note { color: var(--muted); font-size: 12px; }
+    .language-switch { display: flex; gap: 2px; border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 3px; }
+    .language-switch button { padding: 5px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+    .language-switch button[aria-pressed="true"] { background: var(--soft); color: var(--text); font-weight: 700; }
+    .page { padding: 48px 0 54px; }
+    .hero { max-width: 760px; margin: 0 0 30px; }
+    .eyebrow { margin: 0 0 11px; color: var(--accent); font-size: 11px; letter-spacing: .13em; font-weight: 750; text-transform: uppercase; }
+    h1 { white-space: pre-line; margin: 0; font-size: clamp(30px, 4vw, 43px); line-height: 1.14; letter-spacing: -.055em; font-weight: 760; }
+    .hero-copy { margin: 13px 0 0; max-width: 660px; color: var(--muted); font-size: 15px; line-height: 1.75; }
+    .workspace { display: grid; grid-template-columns: minmax(300px, 370px) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 2px 8px rgba(16,24,40,.025); }
+    .controls { padding: 21px; }
+    .preview-card { padding: 21px; position: sticky; top: 18px; }
+    .section-heading { display: flex; align-items: center; gap: 9px; margin: 0 0 15px; font-size: 14px; font-weight: 730; letter-spacing: -.01em; }
+    .step { width: 22px; height: 22px; flex: 0 0 22px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .control-section + .control-section { margin-top: 22px; padding-top: 21px; border-top: 1px solid var(--line); }
+    .drop {
+      min-height: 132px; display: flex; align-items: center; justify-content: center; padding: 18px;
+      border: 1px dashed #cbd1d9; border-radius: 11px; background: #fcfcfd; text-align: center; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .drop:hover, .drop.drag { border-color: var(--accent); background: #f7faff; }
+    .drop input { display: none; }
+    .drop-icon { width: 34px; height: 34px; display: grid; place-items: center; margin: 0 auto 9px; border-radius: 9px; background: var(--soft); color: #343a42; font-size: 20px; }
+    .drop strong { display: block; font-size: 13px; font-weight: 700; }
+    .drop small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .file-meta { min-height: 19px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .file-meta span:last-child { text-align: right; white-space: nowrap; }
+    .field { margin-top: 13px; }
+    .field label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; color: #343940; font-size: 12px; font-weight: 650; }
+    .field select, .field input[type="number"], .field input[type="text"] {
+      width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: var(--text); outline: none;
+    }
+    .field select:focus, .field input:focus { border-color: #9ab8f4; }
+    .field input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+    .field input[type="color"] { width: 42px; height: 30px; padding: 2px; border: 1px solid #dfe3e8; border-radius: 7px; background: #fff; cursor: pointer; }
+    .size-grid, .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .unit-input { position: relative; }
+    .unit-input input { padding-right: 32px !important; }
+    .unit-input span { position: absolute; top: 10px; right: 10px; color: #8a9099; font-size: 10px; pointer-events: none; }
+    .range-row { display: flex; align-items: center; gap: 10px; }
+    .range-row input { flex: 1; min-width: 0; }
+    .range-value { min-width: 42px; color: var(--muted); text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .hint { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .video-box[hidden], .field[hidden] { display: none; }
+    .small-button, .button { min-height: 36px; padding: 8px 11px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #343940; font-size: 12px; font-weight: 650; cursor: pointer; transition: background .15s, border-color .15s; }
+    .small-button:hover, .button:hover { background: #f6f7f8; border-color: #cbd1d9; }
+    .button:disabled { opacity: .42; cursor: not-allowed; }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .button.full { width: 100%; }
+    .button-row { display: flex; gap: 8px; margin-top: 10px; }
+    .button-row > * { flex: 1; }
+    .preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+    .preview-heading .section-heading { margin: 0; }
+    .live-label { color: #28855b; font-size: 10px; font-weight: 750; letter-spacing: .08em; }
+    .stage { position: relative; overflow: hidden; border: 1px solid #dfe3e8; border-radius: 10px; background: #f1f3f5; touch-action: none; user-select: none; }
+    .stage canvas { display: block; width: 100%; height: auto; cursor: grab; touch-action: none; }
+    .stage canvas.dragging { cursor: grabbing; }
+    .stage-label { position: absolute; top: 10px; left: 10px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.75); border-radius: 5px; background: rgba(255,255,255,.88); color: #444b55; font-size: 9px; font-weight: 700; letter-spacing: .07em; pointer-events: none; }
+    .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; pointer-events: none; }
+    .empty-state[hidden] { display: none; }
+    .empty-state strong { font-size: 13px; font-weight: 700; }
+    .empty-state span { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .stage-help { margin: 8px 0 18px; color: var(--muted); font-size: 11px; }
+    .browser-title { margin: 0 0 11px; font-size: 13px; font-weight: 700; }
+    .browser { overflow: hidden; border: 1px solid #d7dbe1; border-radius: 10px; background: #fff; }
+    .tabs { height: 30px; display: flex; align-items: end; gap: 4px; padding: 4px 6px 0; background: var(--frame, #e4e7ec); }
+    .tab { height: 23px; min-width: 86px; max-width: 130px; overflow: hidden; padding: 4px 9px; border-radius: 6px 6px 0 0; background: color-mix(in srgb, var(--toolbar, #f1f3f5) 70%, var(--frame, #e4e7ec)); color: #555d68; font-size: 9px; white-space: nowrap; }
+    .tab.active { background: var(--toolbar, #f1f3f5); color: #24282e; }
+    .tab.spacer { flex: 1; min-width: 0; background: transparent; }
+    .toolbar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 9px; background: var(--toolbar, #f1f3f5); color: #606975; }
+    .nav { font-size: 13px; letter-spacing: 1px; }
+    .omnibox { flex: 1; height: 22px; overflow: hidden; padding: 4px 10px; border-radius: 20px; background: #fff; color: #838b96; font-size: 9px; white-space: nowrap; }
+    .dots { font-size: 14px; }
+    .new-tab { position: relative; display: flex; align-items: flex-start; justify-content: center; aspect-ratio: 16 / 9; overflow: hidden; background: #eef0f3 center / cover no-repeat; }
+    .search-box { width: min(58%, 340px); height: 32px; display: flex; align-items: center; gap: 9px; margin-top: 15%; padding: 0 12px; border-radius: 20px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.12); color: #737b86; font-size: 9px; }
+    .google-mark { font-size: 13px; font-weight: 800; letter-spacing: -1px; }
+    .google-mark span:nth-child(1), .google-mark span:nth-child(4) { color: #4285f4; }
+    .google-mark span:nth-child(2), .google-mark span:nth-child(6) { color: #ea4335; }
+    .google-mark span:nth-child(3) { color: #fbbc05; }
+    .google-mark span:nth-child(5) { color: #34a853; }
+    .preview-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .export-actions { display: flex; gap: 8px; margin-top: 13px; }
+    .export-actions .button.primary { flex: 1; }
+    .install-guide { margin-top: 22px; padding-top: 19px; border-top: 1px solid var(--line); }
+    .install-guide ol { margin: 9px 0 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
+    .install-guide li { margin: 5px 0; padding-left: 2px; }
+    code { padding: 2px 4px; border-radius: 4px; background: var(--soft); color: #39414b; font-size: 10px; }
+    .foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; color: #858c95; font-size: 11px; }
+    .toast { position: fixed; z-index: 10; left: 50%; bottom: 22px; max-width: calc(100% - 30px); padding: 10px 14px; transform: translate(-50%, 12px); border: 1px solid #d8dde4; border-radius: 9px; background: #fff; color: var(--text); box-shadow: 0 8px 30px rgba(20,30,45,.12); font-size: 12px; font-weight: 650; opacity: 0; pointer-events: none; transition: .18s; }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+    @media (max-width: 850px) { .workspace { grid-template-columns: 1fr; } .preview-card { position: static; } }
+    @media (max-width: 540px) {
+      .header-inner, .page { width: min(100% - 24px, 1180px); }
+      .site-header { height: 60px; }
+      .privacy-note { display: none; }
+      .page { padding-top: 31px; }
+      .hero { margin-bottom: 23px; }
+      .hero-copy { font-size: 13px; }
+      .controls, .preview-card { padding: 15px; }
+      .search-box { width: 76%; margin-top: 17%; }
+      .foot { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="Chrome Theme Maker">
+        <span class="brand-mark" aria-hidden="true">CT</span>
+        <span class="brand-name">Chrome Theme Maker</span>
+      </a>
+      <div class="header-right">
+        <span class="privacy-note" data-i18n="privacyBadge">Free · No upload</span>
+        <div class="language-switch" role="group" aria-label="Language">
+          <button type="button" id="jaButton" aria-pressed="true">日本語</button>
+          <button type="button" id="enButton" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="top">
+    <section class="hero">
+      <p class="eyebrow" data-i18n="eyebrow">A SIMPLE CHROME THEME CREATOR</p>
+      <h1 data-i18n="heroTitle">Make a Chrome theme<br>from your own image.</h1>
+      <p class="hero-copy" data-i18n="heroCopy">画像を選んで、位置とサイズを調整するだけ。できあがったテーマはZIPで保存できます。画像は端末内で処理され、外部にアップロードされません。</p>
+    </section>
+
+    <div class="workspace">
+      <section class="card controls" aria-label="Editor controls">
+        <div class="control-section">
+          <h2 class="section-heading"><span class="step">1</span><span data-i18n="chooseMedia">Choose an image or video</span></h2>
+          <label class="drop" id="dropZone" for="mediaInput">
+            <span>
+              <span class="drop-icon" aria-hidden="true">＋</span>
+              <strong data-i18n="dropTitle">Drop a file here or browse</strong>
+              <small data-i18n="dropHelp">PNG, JPG, WEBP, GIF · MP4, WEBM</small>
+            </span>
+            <input id="mediaInput" type="file" accept="image/*,video/*">
+          </label>
+          <div class="file-meta"><span id="fileName" data-i18n="noFile">No file selected</span><span id="fileInfo"></span></div>
+          <div class="video-box" id="videoBox" hidden>
+            <div class="field">
+              <label for="frameRange"><span data-i18n="videoFrame">Video frame</span><output id="frameTime">00:00</output></label>
+              <input id="frameRange" type="range" min="0" max="1" step="0.04" value="0">
+              <p class="hint" data-i18n="videoHelp">Choose a frame. Chrome themes use a still image, not a video.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h2 class="section-heading"><span class="step">2</span><span data-i18n="cropSize">Crop and resize</span></h2>
+          <div class="field">
+            <label for="ratioSelect" data-i18n="outputRatio">Output ratio and size</label>
+            <select id="ratioSelect">
+              <option value="16:9" data-i18n="ratio169">16:9 · 1920 × 1080</option>
+              <option value="16:10" data-i18n="ratio1610">16:10 · 1920 × 1200</option>
+              <option value="4:3" data-i18n="ratio43">4:3 · 1600 × 1200</option>
+              <option value="3:2" data-i18n="ratio32">3:2 · 1800 × 1200</option>
+              <option value="1:1" data-i18n="ratio11">1:1 · 1200 × 1200</option>
+              <option value="9:16" data-i18n="ratio916">9:16 · 1080 × 1920</option>
+              <option value="original" data-i18n="ratioOriginal">Original ratio</option>
+              <option value="custom" data-i18n="ratioCustom">Custom</option>
+            </select>
+          </div>
+          <div class="size-grid">
+            <div class="field">
+              <label for="outWidth" data-i18n="width">Width</label>
+              <div class="unit-input"><input id="outWidth" type="number" min="320" max="4096" value="1920"><span>px</span></div>
+            </div>
+            <div class="field">
+              <label for="outHeight" data-i18n="height">Height</label>
+              <div class="unit-input"><input id="outHeight" type="number" min="320" max="4096" value="1080"><span>px</span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="fitSelect" data-i18n="fitMode">Image fit</label>
+            <select id="fitSelect">
+              <option value="cover" data-i18n="cover">Fill frame (crop)</option>
+              <option value="contain" data-i18n="contain">Fit whole image</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="zoomRange"><span data-i18n="zoom">Zoom</span><output class="range-value" id="zoomValue">100%</output></label>
+            <div class="range-row"><input id="zoomRange" type="range" min="100" max="300" step="1" value="100"><button class="small-button" id="resetCropBtn" type="button" data-i18n="reset">Reset</button></div>
+          </div>
+          <div class="field" id="bgColorField" hidden>
+            <label for="bgColor" data-i18n="backgroundColor">Background color</label>
+            <input id="bgColor" type="color" value="#ffffff">
+          </div>
+          <p class="hint" data-i18n="dragHelp">Drag the image in the preview to adjust the crop.</p>
+          <div class="button-row">
+            <button class="small-button" id="fitImageBtn" type="button" data-i18n="showWhole">Show whole image</button>
+            <button class="small-button" id="fillImageBtn" type="button" data-i18n="fillFrame">Fill frame</button>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h2 class="section-heading"><span class="step">3</span><span data-i18n="themeStyle">Theme details</span></h2>
+          <div class="field">
+            <label for="themeName" data-i18n="themeName">Theme name</label>
+            <input id="themeName" type="text" maxlength="45" value="My Custom Theme">
+          </div>
+          <div class="color-grid">
+            <div class="field">
+              <label for="frameColor" data-i18n="tabColor">Tab bar</label>
+              <input id="frameColor" type="color" value="#e4e7ec">
+            </div>
+            <div class="field">
+              <label for="toolbarColor" data-i18n="toolbarColor">Toolbar</label>
+              <input id="toolbarColor" type="color" value="#f1f3f5">
+            </div>
+          </div>
+        </div>
+        <p class="hint" data-i18n="privacyNote">Your files stay in your browser. Nothing is uploaded.</p>
+      </section>
+
+      <section class="card preview-card" aria-label="Preview and export">
+        <div class="preview-heading">
+          <h2 class="section-heading"><span class="step">A</span><span data-i18n="cropPreview">Crop preview</span></h2>
+          <span class="live-label" data-i18n="live">LIVE PREVIEW</span>
+        </div>
+        <div class="stage" id="cropStage">
+          <canvas id="cropCanvas" width="960" height="540" aria-label="Crop preview. Drag to move the image."></canvas>
+          <div class="stage-label" data-i18n="dragToMove">DRAG TO MOVE</div>
+          <div class="empty-state" id="emptyState"><strong data-i18n="emptyTitle">Your image will appear here</strong><span data-i18n="emptyHelp">Choose an image or video to get started.</span></div>
+        </div>
+        <p class="stage-help" data-i18n="previewHelp">Drag to reposition · Use the zoom slider to resize.</p>
+
+        <div class="preview-heading">
+          <h2 class="section-heading"><span class="step">B</span><span data-i18n="chromePreview">Chrome preview</span></h2>
+        </div>
+        <div class="browser" id="browserPreview">
+          <div class="tabs"><div class="tab active" data-i18n="newTab">New Tab</div><div class="tab" data-i18n="bookmarks">Bookmarks</div><div class="tab spacer"></div><div class="tab">＋</div></div>
+          <div class="toolbar"><span class="nav">‹ › ↻</span><div class="omnibox" data-i18n="addressPrompt">Search Google or type a URL</div><span class="dots">⋮</span></div>
+          <div class="new-tab" id="newTab">
+            <div class="search-box"><span class="google-mark" aria-hidden="true"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span data-i18n="searchGoogle">Search Google</span></div>
+          </div>
+        </div>
+        <div class="preview-meta"><span id="previewResolution" data-i18n="selectImage">Select an image to preview</span><span>PNG · ZIP</span></div>
+        <div class="export-actions">
+          <button class="button" id="savePngBtn" type="button" disabled data-i18n="savePng">Save PNG</button>
+          <button class="button primary" id="downloadBtn" type="button" disabled data-i18n="downloadTheme">Download theme ZIP</button>
+        </div>
+
+        <div class="install-guide">
+          <h2 class="section-heading"><span class="step">C</span><span data-i18n="installTitle">Install in Chrome</span></h2>
+          <ol>
+            <li data-i18n="install1">Download and unzip your theme.</li>
+            <li><span data-i18n="install2">Open</span> <code>chrome://extensions</code>.</li>
+            <li data-i18n="install3">Turn on Developer mode.</li>
+            <li data-i18n="install4">Click “Load unpacked” and select the unzipped folder.</li>
+          </ol>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span>© 2026 Chrome Theme Maker</span>
+      <span data-i18n="footerNote">Free to use · No account · No upload</span>
+    </footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const translations = {
+    ja: {
+      privacyBadge: '無料 · アップロード不要', eyebrow: 'シンプルなChromeテーマ作成ツール',
+      heroTitle: 'お気に入りの画像から、\nChromeテーマを作成。',
+      heroCopy: '画像を選んで、位置とサイズを調整するだけ。できあがったテーマはZIPで保存できます。画像は端末内で処理され、外部にアップロードされません。',
+      chooseMedia: '画像または動画を選択', dropTitle: 'ここにファイルをドロップ、または選択',
+      dropHelp: 'PNG、JPG、WEBP、GIF · MP4、WEBM', noFile: 'ファイルが選択されていません',
+      videoFrame: '動画のフレーム', videoHelp: 'スライダーで好きな場面を選択します。Chromeテーマには静止画として保存されます。',
+      cropSize: '切り取り・サイズ調整', outputRatio: '出力比率とサイズ', ratio169: '16:9 · 1920 × 1080', ratio1610: '16:10 · 1920 × 1200',
+      ratio43: '4:3 · 1600 × 1200', ratio32: '3:2 · 1800 × 1200', ratio11: '1:1 · 1200 × 1200', ratio916: '9:16 · 1080 × 1920',
+      ratioOriginal: '元画像と同じ比率', ratioCustom: 'カスタム', width: '幅', height: '高さ', fitMode: '画像の表示方法',
+      cover: '枠いっぱいに表示（切り取り）', contain: '画像全体を表示', zoom: '拡大・縮小', reset: 'リセット',
+      backgroundColor: '余白の背景色', dragHelp: 'プレビュー上の画像をドラッグして切り取り位置を調整できます。',
+      showWhole: '画像全体を表示', fillFrame: '枠いっぱいに表示', themeStyle: 'テーマの設定',
+      themeName: 'テーマ名', tabColor: 'タブバー', toolbarColor: 'ツールバー', privacyNote: 'ファイルはブラウザー内で処理されます。外部に送信されません。',
+      cropPreview: '切り取りプレビュー', live: 'リアルタイム', dragToMove: 'ドラッグして移動',
+      emptyTitle: 'ここに画像が表示されます', emptyHelp: '画像または動画を選択して始めましょう。',
+      previewHelp: 'ドラッグで位置を調整 · スライダーで拡大・縮小', chromePreview: 'Chromeプレビュー',
+      newTab: '新しいタブ', bookmarks: 'ブックマーク', addressPrompt: 'Googleで検索、またはURLを入力', searchGoogle: 'Google検索',
+      selectImage: '画像を選択してください', savePng: 'PNGを保存', downloadTheme: 'テーマZIPを保存',
+      installTitle: 'Chromeに適用する', install1: 'テーマZIPをダウンロードして解凍します。',
+      install2: '次のページを開きます：', install3: 'デベロッパーモードをオンにします。',
+      install4: '「パッケージ化されていない拡張機能を読み込む」をクリックし、解凍したフォルダーを選びます。',
+      footerNote: '無料で利用可能 · アカウント不要 · アップロード不要',
+      badType: '画像または動画ファイルを選択してください。', imageLoaded: '画像を読み込みました。',
+      imageLoadFail: '画像を読み込めませんでした。', videoLoaded: '動画を読み込みました。',
+      videoUnsupported: 'この動画形式はブラウザーで再生できません。', cropSaved: 'PNGを保存しました。',
+      cropFail: 'PNGの保存に失敗しました。', themeCreated: 'ChromeテーマZIPを作成しました。',
+      zipFail: 'ZIPの作成に失敗しました。', outSizeError: '出力サイズを確認してください。',
+      creating: '作成中…',
+    },
+    en: {
+      privacyBadge: 'FREE · NO UPLOAD', eyebrow: 'A SIMPLE CHROME THEME CREATOR',
+      heroTitle: 'Make a Chrome theme\nfrom your own image.',
+      heroCopy: 'Choose an image, adjust the crop and size, then export your theme as a ZIP file. Everything is processed in your browser. Your files are never uploaded.',
+      chooseMedia: 'Choose an image or video', dropTitle: 'Drop a file here or browse',
+      dropHelp: 'PNG, JPG, WEBP, GIF · MP4, WEBM', noFile: 'No file selected',
+      videoFrame: 'Video frame', videoHelp: 'Choose a frame with the slider. Chrome themes use a still image, not a video.',
+      cropSize: 'Crop and resize', outputRatio: 'Output ratio and size', ratio169: '16:9 · 1920 × 1080', ratio1610: '16:10 · 1920 × 1200',
+      ratio43: '4:3 · 1600 × 1200', ratio32: '3:2 · 1800 × 1200', ratio11: '1:1 · 1200 × 1200', ratio916: '9:16 · 1080 × 1920',
+      ratioOriginal: 'Original image ratio', ratioCustom: 'Custom', width: 'Width', height: 'Height', fitMode: 'Image fit',
+      cover: 'Fill frame (crop)', contain: 'Fit whole image', zoom: 'Zoom', reset: 'Reset',
+      backgroundColor: 'Background color', dragHelp: 'Drag the image in the preview to adjust the crop.',
+      showWhole: 'Show whole image', fillFrame: 'Fill frame', themeStyle: 'Theme settings',
+      themeName: 'Theme name', tabColor: 'Tab bar', toolbarColor: 'Toolbar', privacyNote: 'Files are processed in your browser and are never uploaded.',
+      cropPreview: 'Crop preview', live: 'LIVE PREVIEW', dragToMove: 'DRAG TO MOVE',
+      emptyTitle: 'Your image will appear here', emptyHelp: 'Choose an image or video to get started.',
+      previewHelp: 'Drag to reposition · Use the slider to zoom', chromePreview: 'Chrome preview',
+      newTab: 'New Tab', bookmarks: 'Bookmarks', addressPrompt: 'Search Google or type a URL', searchGoogle: 'Search Google',
+      selectImage: 'Select an image to preview', savePng: 'Save PNG', downloadTheme: 'Download theme ZIP',
+      installTitle: 'Install in Chrome', install1: 'Download and unzip your theme.',
+      install2: 'Open', install3: 'Turn on Developer mode.',
+      install4: 'Click “Load unpacked” and select the unzipped folder.',
+      footerNote: 'Free to use · No account · No upload',
+      badType: 'Please choose an image or video file.', imageLoaded: 'Image loaded.',
+      imageLoadFail: 'Could not load this image.', videoLoaded: 'Video loaded.',
+      videoUnsupported: 'This video format is not supported by your browser.', cropSaved: 'PNG saved.',
+      cropFail: 'Could not save the PNG.', themeCreated: 'Chrome theme ZIP created.',
+      zipFail: 'Could not create the ZIP file.', outSizeError: 'Please check the output size.',
+      creating: 'Creating…',
+    }
+  };
+  let language = 'ja';
+  function t(key) { return translations[language][key] || translations.en[key] || key; }
+  function setLanguage(next) {
+    language = next;
+    document.documentElement.lang = next;
+    document.querySelectorAll('[data-i18n]').forEach(node => {
+      const key = node.dataset.i18n;
+      if (translations[next][key]) node.textContent = translations[next][key];
+    });
+    $('jaButton').setAttribute('aria-pressed', String(next === 'ja'));
+    $('enButton').setAttribute('aria-pressed', String(next === 'en'));
+    if (!$('fileName').dataset.selected) $('fileName').textContent = t('noFile');
+  }
+  $('jaButton').addEventListener('click', () => setLanguage('ja'));
+  $('enButton').addEventListener('click', () => setLanguage('en'));
+
+  const mediaInput = $('mediaInput');
+  const dropZone = $('dropZone');
+  const cropCanvas = $('cropCanvas');
+  const cropCtx = cropCanvas.getContext('2d', { alpha: false });
+  const newTab = $('newTab');
+  let source = null;
+  let sourceUrl = '';
+  let previewUrl = '';
+  let video = null;
+  let panX = 0, panY = 0, zoom = 1;
+  let pointer = null;
+  let toastTimer = 0;
+  let renderToken = 0;
+
+  function toast(message) {
+    const el = $('toast'); el.textContent = message; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+  function safeName(value) {
+    return (value || 'My Chrome Theme').trim().replace(/[\\/:*?"<>|]/g, '-').slice(0, 45) || 'My Chrome Theme';
+  }
+  function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+  function sourceSize() {
+    if (!source) return null;
+    return { w: source.videoWidth || source.naturalWidth || source.width, h: source.videoHeight || source.naturalHeight || source.height };
+  }
+  function outputSize() {
+    let w = Math.round(Number($('outWidth').value));
+    let h = Math.round(Number($('outHeight').value));
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+    w = clamp(w, 320, 4096); h = clamp(h, 320, 4096);
+    if (w * h > 16777216) {
+      const scale = Math.sqrt(16777216 / (w * h));
+      w = Math.max(320, Math.floor(w * scale)); h = Math.max(320, Math.floor(h * scale));
+    }
+    return { w, h };
+  }
+  function ratioChanged() {
+    const value = $('ratioSelect').value;
+    let w = 1920, h = 1080;
+    if (value === '16:10') [w, h] = [1920, 1200];
+    else if (value === '4:3') [w, h] = [1600, 1200];
+    else if (value === '3:2') [w, h] = [1800, 1200];
+    else if (value === '1:1') [w, h] = [1200, 1200];
+    else if (value === '9:16') [w, h] = [1080, 1920];
+    else if (value === 'original') {
+      const s = sourceSize();
+      if (s) {
+        const scale = Math.min(1, 4096 / s.w, 4096 / s.h, Math.sqrt(16777216 / (s.w * s.h)));
+        w = Math.max(320, Math.round(s.w * scale)); h = Math.max(320, Math.round(s.h * scale));
+      }
+    } else if (value === 'custom') return;
+    $('outWidth').value = w; $('outHeight').value = h;
+    panX = 0; panY = 0; draw();
+  }
+  function previewDimensions() {
+    const size = outputSize();
+    if (!size) return { w: 960, h: 540 };
+    const ratio = size.w / size.h;
+    const maxW = 960, maxH = 600;
+    let w = maxW, h = w / ratio;
+    if (h > maxH) { h = maxH; w = h * ratio; }
+    return { w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
+  }
+  function geometry(width, height) {
+    const s = sourceSize();
+    if (!s || !s.w || !s.h) return null;
+    const mode = $('fitSelect').value;
+    const base = mode === 'contain' ? Math.min(width / s.w, height / s.h) : Math.max(width / s.w, height / s.h);
+    const scale = base * zoom;
+    const dw = s.w * scale, dh = s.h * scale;
+    let x = (width - dw) / 2 + panX * width;
+    let y = (height - dh) / 2 + panY * height;
+    const minX = Math.min(0, width - dw), maxX = Math.max(0, width - dw);
+    const minY = Math.min(0, height - dh), maxY = Math.max(0, height - dh);
+    x = clamp(x, minX, maxX); y = clamp(y, minY, maxY);
+    panX = (x - (width - dw) / 2) / width;
+    panY = (y - (height - dh) / 2) / height;
+    return { x, y, w: dw, h: dh };
+  }
+  function drawTo(ctx, width, height) {
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = $('bgColor').value || '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    if (!source) return;
+    const g = geometry(width, height);
+    if (!g) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    try { ctx.drawImage(source, g.x, g.y, g.w, g.h); } catch (error) { /* Wait for the video frame to be ready. */ }
+  }
+  function updateBrowserPreview() {
+    const token = ++renderToken;
+    cropCanvas.toBlob(blob => {
+      if (!blob) return;
+      const nextUrl = URL.createObjectURL(blob);
+      if (token !== renderToken) { URL.revokeObjectURL(nextUrl); return; }
+      const previousUrl = previewUrl;
+      previewUrl = nextUrl;
+      newTab.style.backgroundImage = `url("${previewUrl}")`;
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+    }, 'image/png');
+  }
+  function draw() {
+    const size = previewDimensions();
+    if (cropCanvas.width !== size.w || cropCanvas.height !== size.h) { cropCanvas.width = size.w; cropCanvas.height = size.h; }
+    drawTo(cropCtx, cropCanvas.width, cropCanvas.height);
+    $('zoomValue').textContent = `${Math.round(zoom * 100)}%`;
+    $('zoomRange').value = String(Math.round(zoom * 100));
+    $('bgColorField').hidden = $('fitSelect').value !== 'contain';
+    $('emptyState').hidden = !!source;
+    const out = outputSize();
+    $('previewResolution').textContent = out ? `${out.w.toLocaleString()} × ${out.h.toLocaleString()} px` : t('selectImage');
+    const ready = !!source && !!out;
+    $('savePngBtn').disabled = !ready;
+    $('downloadBtn').disabled = !ready;
+    updateBrowserPreview();
+  }
+  function resetCrop() { zoom = 1; panX = 0; panY = 0; $('zoomRange').value = '100'; draw(); }
+  function timeLabel(seconds) {
+    const n = Math.max(0, Math.floor(seconds || 0));
+    return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+  }
+  function setSource(next) {
+    source = next; zoom = 1; panX = 0; panY = 0;
+    $('zoomRange').value = '100'; $('videoBox').hidden = !video;
+    $('ratioSelect').value = '16:9'; $('outWidth').value = '1920'; $('outHeight').value = '1080';
+    draw();
+  }
+  function cleanupSource() {
+    $('videoBox').hidden = true;
+    if (video) { video.pause(); video.removeAttribute('src'); video.load(); video = null; }
+    if (sourceUrl) { URL.revokeObjectURL(sourceUrl); sourceUrl = ''; }
+    source = null;
+  }
+  function handleFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) { toast(t('badType')); return; }
+    cleanupSource();
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = ''; }
+    $('fileName').textContent = file.name; $('fileName').dataset.selected = 'true';
+    $('fileInfo').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    const url = URL.createObjectURL(file); sourceUrl = url;
+    if (file.type.startsWith('image/')) {
+      const img = new Image();
+      img.onload = () => {
+        if (sourceUrl !== url) return;
+        video = null; setSource(img);
+        const size = sourceSize(); $('fileInfo').textContent += ` · ${size.w} × ${size.h} px`;
+        toast(t('imageLoaded'));
+      };
+      img.onerror = () => toast(t('imageLoadFail'));
+      img.src = url;
+    } else {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'metadata'; video = v;
+      v.addEventListener('loadedmetadata', () => {
+        if (video !== v || !Number.isFinite(v.duration) || v.duration <= 0) return;
+        $('frameRange').min = '0'; $('frameRange').max = String(v.duration);
+        $('frameRange').step = String(Math.max(0.04, v.duration / 1000)); $('frameRange').value = '0';
+        $('frameTime').textContent = timeLabel(0);
+        $('fileInfo').textContent += ` · ${timeLabel(v.duration)} · ${v.videoWidth} × ${v.videoHeight} px`;
+        v.currentTime = Math.min(0.05, v.duration / 2);
+      });
+      v.addEventListener('loadeddata', () => {
+        if (video !== v) return;
+        setSource(v); toast(t('videoLoaded'));
+      });
+      v.addEventListener('seeked', () => { if (video === v) draw(); });
+      v.addEventListener('error', () => toast(t('videoUnsupported')));
+      v.src = url;
+    }
+  }
+
+  mediaInput.addEventListener('change', event => handleFile(event.target.files && event.target.files[0]));
+  dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('drag'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+  dropZone.addEventListener('drop', event => { event.preventDefault(); dropZone.classList.remove('drag'); handleFile(event.dataTransfer.files && event.dataTransfer.files[0]); });
+  $('frameRange').addEventListener('input', event => {
+    if (!video) return;
+    const time = Number(event.target.value); $('frameTime').textContent = timeLabel(time);
+    try { video.currentTime = time; } catch (error) { /* Ignore rapid seek races. */ }
+  });
+  $('ratioSelect').addEventListener('change', ratioChanged);
+  ['outWidth', 'outHeight'].forEach(id => $(id).addEventListener('input', () => { $('ratioSelect').value = 'custom'; draw(); }));
+  $('fitSelect').addEventListener('change', () => { panX = 0; panY = 0; draw(); });
+  $('bgColor').addEventListener('input', draw);
+  $('zoomRange').addEventListener('input', event => { zoom = clamp(Number(event.target.value) / 100, 1, 3); draw(); });
+  $('resetCropBtn').addEventListener('click', resetCrop);
+  $('fitImageBtn').addEventListener('click', () => { $('fitSelect').value = 'contain'; zoom = 1; panX = 0; panY = 0; draw(); });
+  $('fillImageBtn').addEventListener('click', () => { $('fitSelect').value = 'cover'; zoom = 1; panX = 0; panY = 0; draw(); });
+  ['frameColor', 'toolbarColor'].forEach(id => $(id).addEventListener('input', () => {
+    $('browserPreview').style.setProperty(id === 'frameColor' ? '--frame' : '--toolbar', $(id).value);
+  }));
+  cropCanvas.addEventListener('pointerdown', event => {
+    if (!source) return;
+    cropCanvas.setPointerCapture(event.pointerId);
+    pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    cropCanvas.classList.add('dragging');
+  });
+  cropCanvas.addEventListener('pointermove', event => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    const rect = cropCanvas.getBoundingClientRect();
+    panX += (event.clientX - pointer.x) / rect.width;
+    panY += (event.clientY - pointer.y) / rect.height;
+    pointer.x = event.clientX; pointer.y = event.clientY; draw();
+  });
+  function endPointer(event) {
+    if (pointer && pointer.id === event.pointerId) { pointer = null; cropCanvas.classList.remove('dragging'); }
+  }
+  cropCanvas.addEventListener('pointerup', endPointer);
+  cropCanvas.addEventListener('pointercancel', endPointer);
+
+  function makeExportCanvas() {
+    const size = outputSize();
+    if (!size) throw new Error(t('outSizeError'));
+    $('outWidth').value = size.w; $('outHeight').value = size.h;
+    const canvas = document.createElement('canvas'); canvas.width = size.w; canvas.height = size.h;
+    const context = canvas.getContext('2d', { alpha: false });
+    drawTo(context, size.w, size.h);
+    return canvas;
+  }
+  function canvasBlob(canvas) {
+    return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(t('cropFail'))), 'image/png'));
+  }
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  $('savePngBtn').addEventListener('click', async () => {
+    if (!source) return;
+    try {
+      const blob = await canvasBlob(makeExportCanvas());
+      downloadBlob(blob, `${safeName($('themeName').value).replace(/\s+/g, '_')}_background.png`);
+      toast(t('cropSaved'));
+    } catch (error) { console.error(error); toast(error.message || t('cropFail')); }
+  });
+
+  // Small dependency-free ZIP writer (STORE method + CRC32).
+  const crcTable = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1); table[n] = c >>> 0; }
+    return table;
+  })();
+  function crc32(bytes) { let c = 0xffffffff; for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+  function u16(n) { return [n & 255, (n >>> 8) & 255]; }
+  function u32(n) { return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]; }
+  function concat(parts) { const length = parts.reduce((sum, part) => sum + part.length, 0); const out = new Uint8Array(length); let at = 0; for (const part of parts) { out.set(part, at); at += part.length; } return out; }
+  function makeZip(entries) {
+    const encoder = new TextEncoder(), local = [], central = []; let offset = 0;
+    const now = new Date();
+    const time = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+    const date = ((Math.max(1980, now.getFullYear()) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    for (const entry of entries) {
+      const name = encoder.encode(entry.name), data = entry.data, crc = crc32(data);
+      const localHeader = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(time), ...u16(date), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+      local.push(localHeader, name, data);
+      const centralHeader = new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(time), ...u16(date), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]);
+      central.push(centralHeader, name); offset += localHeader.length + name.length + data.length;
+    }
+    const centralBytes = concat(central), localBytes = concat(local);
+    const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(entries.length), ...u16(entries.length), ...u32(centralBytes.length), ...u32(localBytes.length), ...u16(0)]);
+    return new Blob([localBytes, centralBytes, end], { type: 'application/zip' });
+  }
+  const textBytes = value => new TextEncoder().encode(value);
+  $('downloadBtn').addEventListener('click', async () => {
+    if (!source) return;
+    const button = $('downloadBtn'); button.disabled = true; button.textContent = t('creating');
+    try {
+      const canvas = makeExportCanvas(), png = await canvasBlob(canvas), imageBytes = new Uint8Array(await png.arrayBuffer());
+      const name = safeName($('themeName').value);
+      const hexToRgb = hex => { const value = parseInt(hex.slice(1), 16); return [(value >> 16) & 255, (value >> 8) & 255, value & 255]; };
+      const manifest = {
+        manifest_version: 3,
+        name,
+        version: '1.0.0',
+        description: 'A custom Chrome theme created with Chrome Theme Maker.',
+        theme: {
+          images: { theme_ntp_background: 'theme_ntp_background.png' },
+          colors: {
+            frame: hexToRgb($('frameColor').value), toolbar: hexToRgb($('toolbarColor').value),
+            tab_text: [45, 49, 56], tab_background_text: [75, 81, 90], bookmark_text: [45, 49, 56],
+            ntp_text: [32, 35, 42], ntp_link: [26, 94, 180], ntp_header: [105, 110, 120],
+            omnibox_text: [35, 39, 48], omnibox_background: [250, 250, 252]
+          },
+          tints: { buttons: [0, 1, 0.5] },
+          properties: { ntp_background_alignment: 'center', ntp_background_repeat: 'no-repeat' }
+        }
+      };
+      const readme = [
+        'Chrome Theme Maker',
+        '',
+        'EN — Install this theme',
+        '1. Extract this ZIP file.',
+        '2. Open chrome://extensions in Google Chrome.',
+        '3. Turn on Developer mode.',
+        '4. Click “Load unpacked” and select the extracted folder.',
+        '',
+        'JA — テーマの適用方法',
+        '1. このZIPファイルを解凍します。',
+        '2. Chromeで chrome://extensions を開きます。',
+        '3. デベロッパーモードをオンにします。',
+        '4. 「パッケージ化されていない拡張機能を読み込む」から解凍したフォルダーを選択します。',
+        '',
+        'Created locally with Chrome Theme Maker. No files were uploaded.'
+      ].join('\n') + '\n';
+      const zip = makeZip([
+        { name: 'manifest.json', data: textBytes(JSON.stringify(manifest, null, 2) + '\n') },
+        { name: 'theme_ntp_background.png', data: imageBytes },
+        { name: 'README.txt', data: textBytes(readme) }
+      ]);
+      downloadBlob(zip, `${name.replace(/[^\p{L}\p{N}_-]+/gu, '_')}_Chrome_Theme.zip`);
+      toast(t('themeCreated'));
+    } catch (error) { console.error(error); toast(error.message || t('zipFail')); }
+    finally { button.disabled = !source; button.textContent = t('downloadTheme'); }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  });
+  $('frameColor').dispatchEvent(new Event('input'));
+  $('toolbarColor').dispatchEvent(new Event('input'));
+  setLanguage('ja');
+  draw();
+})();
+</script>
+</body>
+</html>
